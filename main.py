@@ -1,3 +1,4 @@
+from logging import raiseExceptions
 from fastapi import FastAPI, HTTPException
 from fastapi.params import Depends
 from schemas import *
@@ -42,6 +43,9 @@ def add_user(newUser : UserSchema, db:Session = Depends(get_db)) :
             name = newUser.name,
             password = get_password_hash(newUser.password)
         )
+        userSearch = db.query(User).filter(User.email == user.email).first()
+        if userSearch :
+            raise HTTPException(status_code=400, detail='Email already exist')
         db.add(user)
         db.commit()
 
@@ -50,7 +54,7 @@ def add_user(newUser : UserSchema, db:Session = Depends(get_db)) :
         }
     except Exception as e :
         print(e)
-        return e
+        raise HTTPException(status_code=500, detail=e)
 
 @app.post('/api/login', tags=['Authorization'])
 # async def user_login(user: LoginSchema, db:Session = Depends(get_db)):
@@ -67,7 +71,7 @@ async def user_login(user: OAuth2PasswordRequestForm = Depends(), db:Session = D
             raise HTTPException(status_code=401, detail='Invalid Credential')
     except Exception as e:
         print(e)
-        raise HTTPException(status_code=500, detail="Internal server Error")
+        raise HTTPException(status_code=400, detail="Invalid Credential")
 
 async def get_current_user(db: Session = Depends(get_db), token:str = Depends(auth_scheme)) :
     try :
@@ -100,8 +104,8 @@ async def change_password(updatedUser:ChangePassword, db:Session=Depends(get_db)
             raise HTTPException(status_code=401, detail='Invalid Credential')
         if (userValidaiton.email == user.email and verify_password(user.password, userValidaiton.password)) :
             # return signJWT(loginData)
-            print("masuk")
             userValidaiton.password = get_password_hash(updatedUser.newPassword)
+            db.flush()
             db.add(userValidaiton)
             db.commit()
             db.refresh(userValidaiton)

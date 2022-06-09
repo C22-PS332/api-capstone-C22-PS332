@@ -22,11 +22,11 @@ app.add_middleware(
 
 auth_scheme = OAuth2PasswordBearer(tokenUrl='api/login')
 
-async def check_user(data: UserSchema, db : Session = Depends(get_db)):
-    loginData = db.query(User).filter(User.username == data.username).first()
-    return (loginData.username == data.username and verify_password(loginData.password) == data.password)
+# async def check_user(data: UserSchema, db : Session = Depends(get_db)):
+#     loginData = db.query(User).filter(User.email == data.email).first()
+#     return (loginData.email == data.email and verify_password(loginData.password) == data.password)
     
-@app.get("/api/user")
+@app.get("/api/user", tags=["test"])
 def get_user(db : Session = Depends(get_db)) :
     try :
         return db.query(User).all()
@@ -34,11 +34,12 @@ def get_user(db : Session = Depends(get_db)) :
         return e
 
 
-@app.post("/api/user")
+@app.post("/api/user", tags=["Authorization"])
 def add_user(newUser : UserSchema, db:Session = Depends(get_db)) :
     try :
         user = User(
-            username = newUser.username,
+            email = newUser.email,
+            name = newUser.name,
             password = get_password_hash(newUser.password)
         )
         db.add(user)
@@ -52,25 +53,26 @@ def add_user(newUser : UserSchema, db:Session = Depends(get_db)) :
         return e
 
 @app.post('/api/login', tags=['Authorization'])
+# async def user_login(user: LoginSchema, db:Session = Depends(get_db)):
 async def user_login(user: OAuth2PasswordRequestForm = Depends(), db:Session = Depends(get_db)):
-
-    loginData = db.query(User).filter(User.username == user.username).first()
-    if not loginData :
-        print('not login data')
-        print(loginData)
-        raise HTTPException(status_code=401, detail='Invalid Credential')
-    if (loginData.username == user.username and verify_password(user.password, loginData.password)) :
-        return signJWT(loginData)
-    else :
-        print('else')
-        print(user.username, user.password)
-        print(loginData.username, loginData.password)
-        raise HTTPException(status_code=401, detail='Invalid Credential')
+    try:
+        loginData = db.query(User).filter(User.email == user.username).first()
+        if not loginData :
+            print('not login data')
+            print(loginData)
+            raise HTTPException(status_code=401, detail='Invalid Credential')
+        if (loginData.email == user.username and verify_password(user.password, loginData.password)) :
+            return signJWT(loginData)
+        else :
+            raise HTTPException(status_code=401, detail='Invalid Credential')
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail="Internal server Error")
 
 async def get_current_user(db: Session = Depends(get_db), token:str = Depends(auth_scheme)) :
     try :
         payload = jwt.decode(token, JWT_SECRET, algorithms=JWT_ALGORITHM)
-        user = db.query(User).get(payload['username'])
+        user = db.query(User).get(payload['email'])
     except Exception as e:
         raise HTTPException(status_code=401, detail="invalid credentials")
 
@@ -79,8 +81,32 @@ async def get_current_user(db: Session = Depends(get_db), token:str = Depends(au
 
 @app.get('/api/me', dependencies=[Depends(auth_scheme)], tags=['Me'])
 async def user_login(user:UserSchema = Depends(get_current_user)):
-    return {"username" : user.username}
+    return {"email" : user.email, "name" :user.name}
 
-@app.post('/api/test')
+@app.post('/api/test', tags=['test'])
 async def test(user:UserSchema) :
     return user
+
+@app.put('/api/user/change-password', tags=["Authorization"])
+async def change_password(updatedUser:ChangePassword, db:Session=Depends(get_db)) :
+    try :
+        user = User(
+            email = updatedUser.email,
+            password = updatedUser.password,
+        )
+        userValidaiton = db.query(User).filter(User.email == user.email).first()
+        if not userValidaiton :
+            print(userValidaiton)
+            raise HTTPException(status_code=401, detail='Invalid Credential')
+        if (userValidaiton.email == user.email and verify_password(user.password, userValidaiton.password)) :
+            # return signJWT(loginData)
+            print("masuk")
+            userValidaiton.password = get_password_hash(updatedUser.newPassword)
+            db.add(userValidaiton)
+            db.commit()
+            db.refresh(userValidaiton)
+            return {"message" : "password changed"}            
+        raise HTTPException(status_code=401, detail='Invalid Credential')
+        
+    except Exception as e :
+        raise HTTPException(status_code=400, detail='Invalid email and current password')

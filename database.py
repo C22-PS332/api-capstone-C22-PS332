@@ -1,4 +1,5 @@
 import sqlalchemy
+from sqlalchemy import delete, update
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from secret import DB_UNAME, DB_IP, DB_PW

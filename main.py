@@ -1,5 +1,5 @@
 from logging import raiseExceptions
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.params import Depends
 from schemas import *
 from models import *
@@ -10,6 +10,10 @@ from auth import JWT_ALGORITHM, JWT_SECRET, signJWT
 import jwt
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
+import asyncio
+import requests
+from predict import predictImage
+from secret import SPOON_API_KEY
 
 app = FastAPI()
 
@@ -114,3 +118,30 @@ async def change_password(updatedUser:ChangePassword, db:Session=Depends(get_db)
         
     except Exception as e :
         raise HTTPException(status_code=400, detail='Invalid email and current password')
+
+@app.post("/api/predict", tags=["Machine Learning"])
+async def create_upload_file(file: UploadFile = File(...), token:str = Depends(auth_scheme), db:Session=Depends(get_db)):
+
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=JWT_ALGORITHM)
+        user = db.query(User).get(payload['email'])
+        if not user :
+            raise HTTPException(status_code=401, detail='Unauthorized! please register/login first!')
+
+        contents = await file.read()
+        prediction = predictImage(contents)
+        url = 'https://api.spoonacular.com/recipes/findByIngredients?ingredients='+str(prediction)+'&number=10&limitLicense=true&ranking=1&ignorePantry=false&apiKey='+str(SPOON_API_KEY)
+        response = requests.get(url)
+        response = requests.get(url)
+        arrayResult = response.json()
+        for i in range(len(arrayResult)):
+            arrayResult[i].pop('usedIngredientCount')
+            arrayResult[i].pop('missedIngredientCount')
+            arrayResult[i].pop('missedIngredients')
+            arrayResult[i].pop('usedIngredients')
+            arrayResult[i].pop('unusedIngredients')
+            arrayResult[i].pop('likes')
+            arrayResult[i].update({'summary' : str('Recipe for ' + str(arrayResult[i]['title']))})
+        return arrayResult
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=e)

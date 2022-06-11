@@ -1,5 +1,5 @@
 from logging import raiseExceptions
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.params import Depends
 from schemas import *
 from models import *
@@ -10,6 +10,9 @@ from auth import JWT_ALGORITHM, JWT_SECRET, signJWT
 import jwt
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
+import asyncio
+import requests
+from predict import predictImage
 
 app = FastAPI()
 
@@ -114,3 +117,17 @@ async def change_password(updatedUser:ChangePassword, db:Session=Depends(get_db)
         
     except Exception as e :
         raise HTTPException(status_code=400, detail='Invalid email and current password')
+
+@app.post("/api/predict", tags=["Machine Learning"])
+async def create_upload_file(file: UploadFile = File(...)):
+
+    contents = await file.read()  # <-- Important!
+    prediction = predictImage(contents)
+
+    # example of how you can save the file
+    # with open(f"{IMAGEDIR}{file.filename}", "wb") as f:
+        # f.write(contents)
+    prediction = predictImage(contents)
+    url = 'https://api.spoonacular.com/recipes/findByIngredients?ingredients='+str(prediction)+'&number=10&limitLicense=true&instructionsRequired=true&fillIngredients=false&ranking=1&ignorePantry=false&apiKey=3ff72eac98e545da878857652b999020'
+    response = requests.get(url)
+    return response.json()

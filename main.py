@@ -14,6 +14,7 @@ import asyncio
 import requests
 from predict import predictImage
 from secret import SPOON_API_KEY
+import re
 
 app = FastAPI()
 
@@ -38,6 +39,12 @@ def get_user(db : Session = Depends(get_db)) :
     except Exception as e :
         return e
 
+
+def validateEmail(email):
+    emailRegex = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+
+    return re.fullmatch(emailRegex, email)
+        
 
 @app.post("/api/user", tags=["Authorization"])
 def add_user(newUser : UserSchema, db:Session = Depends(get_db)) :

@@ -48,12 +48,19 @@ def validateEmail(email):
 
 @app.post("/api/user", tags=["Authorization"])
 def add_user(newUser : UserSchema, db:Session = Depends(get_db)) :
+
+    if (not validateEmail(newUser.email)) :
+        raise HTTPException(status_code=400, detail='Invalid email format')
+
+    if (len(newUser.password) < 8) :
+        raise HTTPException(status_code=400, detail='Password length must 8 character')
     
     user = User(
         email = newUser.email,
         name = newUser.name,
         password = get_password_hash(newUser.password)
     )
+
     try:
         userSearch = db.query(User).filter(User.email == user.email).first()
     except Exception as e:

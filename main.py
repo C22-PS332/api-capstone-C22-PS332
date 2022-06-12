@@ -70,19 +70,23 @@ def add_user(newUser : UserSchema, db:Session = Depends(get_db)) :
 @app.post('/api/login', tags=['Authorization'])
 # async def user_login(user: LoginSchema, db:Session = Depends(get_db)):
 async def user_login(user: OAuth2PasswordRequestForm = Depends(), db:Session = Depends(get_db)):
+
     try:
         loginData = db.query(User).filter(User.email == user.username).first()
-        if not loginData :
-            print('not login data')
-            print(loginData)
-            raise HTTPException(status_code=401, detail='Invalid Credential')
-        if (loginData.email == user.username and verify_password(user.password, loginData.password)) :
-            return signJWT(loginData)
-        else :
-            raise HTTPException(status_code=401, detail='Invalid Credential')
-    except Exception as e:
-        print(e)
-        raise HTTPException(status_code=400, detail="Invalid Credential")
+    except Exception as e :
+        raise HTTPException(status_code=500, detail=e)
+
+    if not loginData :
+        # print('not login data')
+        # print(loginData)
+        raise HTTPException(status_code=404, detail='User not found')
+
+    if (loginData.email == user.username and verify_password(user.password, loginData.password)) :
+        return signJWT(loginData)
+
+    else :
+        raise HTTPException(status_code=401, detail='Invalid Credential')
+
 
 async def get_current_user(db: Session = Depends(get_db), token:str = Depends(auth_scheme)) :
     try :

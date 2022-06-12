@@ -32,12 +32,12 @@ auth_scheme = OAuth2PasswordBearer(tokenUrl='api/login')
 #     loginData = db.query(User).filter(User.email == data.email).first()
 #     return (loginData.email == data.email and verify_password(loginData.password) == data.password)
     
-@app.get("/api/user", tags=["test"])
-def get_user(db : Session = Depends(get_db)) :
-    try :
-        return db.query(User).all()
-    except Exception as e :
-        return e
+# @app.get("/api/user", tags=["test"])
+# def get_user(db : Session = Depends(get_db)) :
+#     try :
+#         return db.query(User).all()
+#     except Exception as e :
+#         return e
 
 
 def validateEmail(email):
@@ -116,9 +116,7 @@ async def get_current_user(db: Session = Depends(get_db), token:str = Depends(au
 async def user_login(user:UserSchema = Depends(get_current_user)):
     return {"email" : user.email, "name" :user.name}
 
-@app.post('/api/test', tags=['test'])
-async def test(user:UserSchema) :
-    return user
+
 
 @app.put('/api/user/change-password', tags=["Authorization"])
 async def change_password(updatedUser:ChangePassword, db:Session=Depends(get_db)) :

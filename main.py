@@ -122,27 +122,39 @@ async def test(user:UserSchema) :
 
 @app.put('/api/user/change-password', tags=["Authorization"])
 async def change_password(updatedUser:ChangePassword, db:Session=Depends(get_db)) :
-    try :
-        user = User(
-            email = updatedUser.email,
-            password = updatedUser.password,
-        )
-        userValidaiton = db.query(User).filter(User.email == user.email).first()
-        if not userValidaiton :
-            print(userValidaiton)
-            raise HTTPException(status_code=401, detail='Invalid Credential')
-        if (userValidaiton.email == user.email and verify_password(user.password, userValidaiton.password)) :
-            # return signJWT(loginData)
-            userValidaiton.password = get_password_hash(updatedUser.newPassword)
+
+    if (not validateEmail(updatedUser.email)):
+        raise HTTPException(status_code=400, detail='Invalid email format')
+
+    if (len(updatedUser.password) < 8) :
+        raise HTTPException(status_code=400, detail='Password length must 8 character')
+
+    user = User(
+        email = updatedUser.email,
+        password = updatedUser.password,
+    )
+
+    userValidation = db.query(User).filter(User.email == user.email).first()
+
+    if not userValidation :
+        # print(userValidation)
+        raise HTTPException(status_code=404, detail='User not found')
+
+    if (userValidation.email == user.email and verify_password(user.password, userValidation.password)) :
+        # return signJWT(loginData)
+        try :
+            userValidation.password = get_password_hash(updatedUser.newPassword)
             db.flush()
-            db.add(userValidaiton)
+            db.add(userValidation)
             db.commit()
-            db.refresh(userValidaiton)
-            return {"message" : "password changed"}            
-        raise HTTPException(status_code=401, detail='Invalid Credential')
-        
-    except Exception as e :
-        raise HTTPException(status_code=400, detail='Invalid email and current password')
+            db.refresh(userValidation)
+            return {"message" : "password changed"}   
+
+        except Exception as e :
+            raise HTTPException(status_code=500, detail=e)
+                 
+    raise HTTPException(status_code=401, detail='Invalid Credential')
+
 
 @app.post("/api/predict", tags=["Machine Learning"])
 async def create_upload_file(file: UploadFile = File(...), token:str = Depends(auth_scheme), db:Session=Depends(get_db)):

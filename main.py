@@ -41,24 +41,31 @@ def get_user(db : Session = Depends(get_db)) :
 
 @app.post("/api/user", tags=["Authorization"])
 def add_user(newUser : UserSchema, db:Session = Depends(get_db)) :
-    try :
-        user = User(
-            email = newUser.email,
-            name = newUser.name,
-            password = get_password_hash(newUser.password)
-        )
+    
+    user = User(
+        email = newUser.email,
+        name = newUser.name,
+        password = get_password_hash(newUser.password)
+    )
+    try:
         userSearch = db.query(User).filter(User.email == user.email).first()
-        if userSearch :
-            raise HTTPException(status_code=400, detail='Email already exist')
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=e)
+
+    if userSearch :
+        raise HTTPException(status_code=400, detail='Email already exist')
+
+    try :
         db.add(user)
         db.commit()
-
-        return {
-            'status' : 'user created'
-        }
     except Exception as e :
-        print(e)
+        # print(e)
         raise HTTPException(status_code=500, detail=e)
+
+    return {
+        'status' : 'user created'
+    }
+    
 
 @app.post('/api/login', tags=['Authorization'])
 # async def user_login(user: LoginSchema, db:Session = Depends(get_db)):

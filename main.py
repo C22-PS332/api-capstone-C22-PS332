@@ -162,9 +162,13 @@ async def create_upload_file(file: UploadFile = File(...), token:str = Depends(a
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=JWT_ALGORITHM)
         user = db.query(User).get(payload['email'])
-        if not user :
-            raise HTTPException(status_code=401, detail='Unauthorized! please register/login first!')
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=e)
 
+    if not user :
+        raise HTTPException(status_code=401, detail='Unauthorized! please register/login first!')
+
+    try:
         contents = await file.read()
         prediction = predictImage(contents)
         url = 'https://api.spoonacular.com/recipes/findByIngredients?ingredients='+str(prediction)+'&number=10&limitLicense=true&ranking=1&ignorePantry=false&apiKey='+str(SPOON_API_KEY)
@@ -180,5 +184,6 @@ async def create_upload_file(file: UploadFile = File(...), token:str = Depends(a
             arrayResult[i].pop('likes')
             arrayResult[i].update({'summary' : str('Recipe for ' + str(arrayResult[i]['title']))})
         return arrayResult
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=e)
